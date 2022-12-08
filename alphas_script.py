@@ -95,7 +95,7 @@ if not output_file.exists():
 
     np.savetxt(f"{output_file}", np.array(preds))
 
-preds = np.loadtxt(output_file)
+preds = np.loadtxt(output_file) - 0.118
 
 std = np.std(np.array(preds))
 cv = np.mean(np.array(preds))
@@ -105,10 +105,9 @@ plt.hist(preds, bins=nbins)
 bin_width = (preds.max() - preds.min())/nbins
 xaxis_plotpoints = np.linspace(cv - 3*std, cv + 3*std, 100)
 gaussian = np.exp(-(xaxis_plotpoints-cv)**2/(2*std**2))/(np.sqrt(2*np.pi*std**2))*preds.size*bin_width
-plt.plot(xaxis_plotpoints, gaussian, label=fr"P($\alpha_s) = ${cv:.4f} $\pm$ {std:.4f}")
+plt.plot(xaxis_plotpoints, gaussian, label=fr"$\delta\alpha_s = ${cv:.4f} $\pm$ {std:.4f}")
 
-plt.xlabel(r"$\alpha_s$")
+plt.xlabel(r"$\delta\alpha_s$")
 plt.ylabel("counts")
-plt.title(r"prior of the nuisance parameter $\alpha_s$?")
 plt.legend()
 plt.savefig("histplot.pdf")
