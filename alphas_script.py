@@ -17,9 +17,9 @@ from validphys.api import API
 l = Loader()
 
 # Configuration
-fit = "221203-ern-001"
+fit = "221203-ern-002"
 pdf_ori = "NNPDF40_nnlo_as_01180"
-output_file_name = "alphas.csv"
+output_file_name = f"alphas_{fit}.csv"
 nbins = 20
 
 inp = {
@@ -107,7 +107,8 @@ plt.plot(xaxis_plotpoints, gaussian, label=rf"$\alpha_s = ${cv:.4f} $\pm$ {std:.
 
 plt.axvline(x=pred_cv, color="green", label=f"replica0 prediction: {pred_cv:.4f}")
 
+plt.title(f"{fit}")
 plt.xlabel(r"$\alpha_s$")
 plt.ylabel("counts")
 plt.legend()
-plt.savefig("histplot.pdf")
+plt.savefig(f"alphashist_{fit}.pdf")
