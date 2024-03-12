@@ -114,7 +114,7 @@ def ComputePosterior(fitname):
     for delta in delta_pred:
         S += np.outer(delta, delta)
 
-    S = pd.DataFrame(S, index=delta_pred.index, columns=delta_pred.index)
+    S = pd.DataFrame(S, index=delta_pred[0].index, columns=delta_pred[0].index)
     
     # Experimental covariance matrix
     C = API.groups_covmat_no_table(**common_dict)
