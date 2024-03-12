@@ -228,7 +228,7 @@ if __name__ == "__main__":
     results_list = []
     for i, pred in enumerate(preds):
         print(i)
-        result = {f'h_{i}' : f'{preds[0]:.5f}', 'unc' : f'{np.sqrt(P_tilde[i][i]):.5f}'}
+        result = {f'h_{i+1}' : f'{preds[i]:.5f}', 'unc' : f'{np.sqrt(P_tilde[i][i]):.5f}'}
         results_list.append(result)
 
     results = {
