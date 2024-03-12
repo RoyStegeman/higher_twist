@@ -1,15 +1,5 @@
 #!/bin/sh
-#$ -N HT_posterior
-#$ -cwd
-#$ -l h_rt=10:00:00
-#$ -l h_vmem=10G
-#$ -o /exports/csce/eddie/ph/groups/nnpdf/Users/ac/comparefits/logs
-#$ -e /exports/csce/eddie/ph/groups/nnpdf/Users/ac/comparefits/logs
-#$ -m eas
-#$ -M amedeochiefa@gmail.com
 
-source /exports/csce/eddie/ph/groups/nnpdf/Users/ac/miniconda3/bin/activate nnpdf
-script=/Users/s2569857/Codes/NNPDF4.0/alphas_covmat/higher_twist/posteriors.py
 qsubpath=/exports/applications/gridengine/ge-8.6.5/bin/lx-amd64/qsub
 
 fits=(
@@ -25,4 +15,6 @@ fits=(
     "240308-10-ach-ht-5pt-lowW2-dis"
 )
 
-$qsubpath -t 1-10 -l h_vmem=2500M -pe sharedmem 8 python posteriors.py ${fits[$SGE_TASK_ID]} ./
+for fit in ${fits[@]}; do
+	$qsubpath -N "HT_"$fit script.sh $fit
+done
