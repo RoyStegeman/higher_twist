@@ -110,7 +110,7 @@ def ComputePosterior(fitname):
 
 
     # Theory covariance matrix
-    S = np.ndarray((delta_pred[0].size, delta_pred[0].size))
+    S = np.zeros((delta_pred[0].size, delta_pred[0].size))
     for delta in delta_pred:
         S += np.outer(delta, delta)
 
@@ -152,7 +152,7 @@ def ComputePosterior(fitname):
         S_tilde += np.outer(tilde,tilde)
     
     beta = delta_pred
-    S_hat = np.zeros((len(beta_tilde[0]),delta_pred[0].size))
+    S_hat = np.zeros((len(beta_tilde[0]),len(delta_pred[0])))
     for b in zip(beta_tilde, beta):
         S_hat += np.outer(b[0], b[1])
     
@@ -227,12 +227,17 @@ if __name__ == "__main__":
 
     results_list = []
     for i, pred in enumerate(preds):
-        print(i)
         result = {f'h_{i+1}' : f'{preds[i]:.5f}', 'unc' : f'{np.sqrt(P_tilde[i][i]):.5f}'}
         results_list.append(result)
 
+    if P_tilde.size > 2:
+        corr = P_tilde[1][0]
+    else:
+        corr = 0
+
     results = {
-        f'Posterior(s) for {sys.argv[1]}': results_list
+        f'Posterior(s) for {sys.argv[1]}': results_list,
+        f'Correlation coefficient' : f'{corr:.5f}'
     }
 
     with open(dir + '/result.yml', 'w') as outfile:
