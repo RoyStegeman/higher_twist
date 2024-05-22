@@ -10,11 +10,16 @@ def main(config_path, output_path):
     with open(config_path, 'r') as file:
         runcard = yaml.load(file)
 
+    # theorycovmatconfig = runcard.get('theorycovmatconfig', {})
+    # use_thcovmat_in_sampling = theorycovmatconfig.get('use_thcovmat_in_sampling', False)
     config = dict(
         dataset_inputs=runcard['dataset_inputs'],
         theoryid=runcard['theory']['theoryid'],
         use_cuts='internal',
-        **runcard['theorycovmatconfig'],
+        separate_multiplicative=False,
+        # theory_covmat_flag=use_thcovmat_in_sampling,
+        # output_path='/tmp', # where to store the loaded covmat, this is usually the tables folder
+        # **theorycovmatconfig,
     )
 
     # Get central values of dataset inputs
@@ -26,7 +31,7 @@ def main(config_path, output_path):
     uncs = np.sqrt(np.diag(covmat))
 
     # Determine indices of data points to cut based on central values and uncertainties
-    mask = (central_values - 2 * uncs) < 0
+    mask = (central_values - 3 * uncs) < 0
     datapoint_index = API.groups_index(**config)
     datapoints_to_cut = datapoint_index[mask]
 
@@ -45,7 +50,7 @@ def main(config_path, output_path):
         yaml.dump(runcard, file)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Add filter rules to an existing n3fit runcard to remove all datapoints within 2 std from 0.")
+    parser = argparse.ArgumentParser(description="Add filter rules to an existing n3fit runcard to remove all datapoints within 2 std from 0, as defined with the exp covmat only.")
     parser.add_argument('config_path', type=str, help='The path to the input runcard.')
     parser.add_argument('-o', '--output_path', type=str, default='runcard_with_filterrules.yml', help='The output path for the generated YAML file.')
 
