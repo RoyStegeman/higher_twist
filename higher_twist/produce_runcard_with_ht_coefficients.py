@@ -16,8 +16,8 @@ def main(config_path, output_path, factors):
     y_L =  (y_2 - np.power(x, 0.05) * y_T)
 
     # Add filter rules to the runcard
-    runcard['theorycovmatconfig']['H2_list'] = y_2 * factors[0]
-    runcard['theorycovmatconfig']['HL_list'] = y_L.tolist() * factors[1]
+    runcard['theorycovmatconfig']['H2_list'] = np.multiply(y_2, factors[0]).tolist()
+    runcard['theorycovmatconfig']['HL_list'] = np.multiply(y_L, factors[1]).tolist()
 
     # Save the new runcard with added filter rules
     with open(output_path, 'w') as file:
