@@ -10,5 +10,5 @@
 source /exports/csce/eddie/ph/groups/nnpdf/Users/ac/miniconda3/bin/activate nnpdf
 CURRENTDIR=/exports/csce/eddie/ph/groups/nnpdf/Users/ac/codes/alphas_covmat/higher_twist
 
-python posteriors.py $1 $CURRENTDIR
+python ht_ABMP_script.py $1 $CURRENTDIR
 
