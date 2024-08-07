@@ -34,6 +34,10 @@ def store_dict(name='result.yml'):
           return
 
         dict_result = func(*args, **kwargs)
+        for key in dict_result.keys():
+           for key2 in dict_result[key].keys():
+              for pred in dict_result[key][key2]:
+                 pred = pred.string_rep()
 
         if args[0].save_dir is None: 
             dir = POSTERIOR_FOLDER + '/' +  args[0].fitname
@@ -57,8 +61,11 @@ class Prediction:
     self.central_plus_sigma = central + sigma
     self.central_minus_sigma = central - sigma
 
+  def string_rep(self):
+      return f"{self.central:.5f} ± {self.sigma:.5f} \n"
+
   def __str__(self) -> str:
-    return f"{self.central:.5f} ± {self.sigma:.5f} \n"
+    return self.string_rep
 
 
 class Posterior:
