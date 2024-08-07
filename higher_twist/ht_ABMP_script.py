@@ -292,7 +292,7 @@ class Posterior:
         delta_pred.append(preds_input[f"d(0,{i+1}+)"])
     return delta_pred
   
-  @store_dict()
+  #@store_dict()
   def create_posterior_dict(self):
     posteriors, posteriors_sigma = self.compute_posteriors_and_unc()
     predictions_list = [Prediction(central, sigma) for central, sigma in zip(posteriors, posteriors_sigma.diagonal())]
