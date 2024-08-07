@@ -3,11 +3,13 @@ import scipy as sp
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import functools
 from scipy import interpolate as scint
 from collections import defaultdict, namedtuple
 import operator
 from pathlib import Path
 import sys
+import ipdb
 
 from validphys.theorycovariance.construction import extract_target, compute_ratio_delta, compute_ht_parametrisation
 
@@ -18,7 +20,34 @@ from ruamel.yaml.main import round_trip_dump as yaml_dump
 # ABMP parametrisation
 x_abmp = [0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1]
 
+
+POSTERIOR_FOLDER = 'posteriors'
+
 pd.options.mode.chained_assignment = None
+
+def store_dict(name='result.yml'):
+   def store_dict_decorator(func):
+      @functools.wraps(func)
+      def wrapper(*args, **kwargs):
+
+        if not args[0].save:
+          return
+
+        dict_result = func(*args, **kwargs)
+
+        if args[0].save_dir is None: 
+            dir = POSTERIOR_FOLDER + '/' +  args[0].fitname
+        else:
+            dir = args[0].save_dir + '/' +  args[0].fitname
+
+        target_dir = Path(dir)
+        if not target_dir.is_dir():
+          target_dir.mkdir(parents=True, exist_ok=True)
+
+        with open(dir + '/' + name, 'w') as saved_dict:
+           yaml_dump(dict_result, saved_dict)
+      return wrapper
+   return store_dict_decorator
 
 
 class Prediction:
@@ -33,13 +62,17 @@ class Prediction:
 
 
 class Posterior:
-  def __init__(self, fitname):  
+  def __init__(self, fitname, save = True, save_dir = None):
+    
     self.thcovmat_dict = API.fit(fit=fitname).as_input()["theorycovmatconfig"]
     self.H2_coeff_list = self.thcovmat_dict["H2_list"]
     self.HL_coeff_list = self.thcovmat_dict["HL_list"]
     self.lenH2 = len(self.H2_coeff_list)
     self.lenHL = len(self.HL_coeff_list)
     self.fitname = fitname
+    self.x_knots = self.thcovmat_dict.get('ht_knots', x_abmp)
+    self.save_dir = save_dir
+    self.save = save
 
     self.common_dict = dict(
         dataset_inputs={"from_": "fit"},
@@ -182,7 +215,7 @@ class Posterior:
     preds_input.loc[['DIS NC', 'DIS CC'], 'y'] =  yvals_DIS
 
     # Initialise dataframe
-    for i in range(len(x_abmp)):
+    for i in range(len(self.x_knots)):
         preds_input[f"p({i+1}+,0)"] = 0
         preds_input[f"p(0,{i+1}+)"] = 0
         preds_input[f"d({i+1}+,0)"] = 0
@@ -204,8 +237,8 @@ class Posterior:
 
 
                     # Loop over the parameter
-                    for i in range(len(x_abmp)):
-                        PC_2, PC_L = compute_ht_parametrisation(i, x_abmp, kin_dict, exp, self.H2_coeff_list, self.HL_coeff_list)
+                    for i in range(len(self.x_knots)):
+                        PC_2, PC_L = compute_ht_parametrisation(i, self.x_knots, kin_dict, exp, self.H2_coeff_list, self.HL_coeff_list)
                         if target == 'proton':
                           deltas[f"p({i+1}+,0)"] += [PC_2]
                           deltas[f"p(0,{i+1}+)"] += [PC_L]
@@ -224,14 +257,14 @@ class Posterior:
                         else:
                             raise ValueError("Could not detect target.")
                 else:
-                    for i in range(len(x_abmp)):
+                    for i in range(len(self.x_knots)):
                         deltas[f"p({i+1}+,0)"] += [np.zeros(preds_input.xs(exp, level=1, drop_level=False).shape[0])]
                         deltas[f"p(0,{i+1}+)"] += [np.zeros(preds_input.xs(exp, level=1, drop_level=False).shape[0])]
                         deltas[f"d({i+1}+,0)"] += [np.zeros(preds_input.xs(exp, level=1, drop_level=False).shape[0])]
                         deltas[f"d(0,{i+1}+)"] += [np.zeros(preds_input.xs(exp, level=1, drop_level=False).shape[0])]
 
     delta_pred = []
-    for i in range(len(x_abmp)):
+    for i in range(len(self.x_knots)):
         temp_1 = np.array([])
         temp_2 = np.array([])
         temp_3 = np.array([])
@@ -252,6 +285,7 @@ class Posterior:
         delta_pred.append(preds_input[f"d(0,{i+1}+)"])
     return delta_pred
   
+  @store_dict()
   def create_posterior_dict(self):
     posteriors, posteriors_sigma = self.compute_posteriors_and_unc()
     predictions_list = [Prediction(central, sigma) for central, sigma in zip(posteriors, posteriors_sigma.diagonal())]
@@ -302,6 +336,7 @@ class PlotHT:
     self.type = type
     self.target = target
     self.fitname = fitname
+    self.x_knots = x_nodes
     self.HT = sp.interpolate.CubicSpline(x_nodes, [pred.central for pred in self.preds])
     self.HT_plus = sp.interpolate.CubicSpline(x_nodes, [pred.central_plus_sigma for pred in self.preds])
     self.HT_minus = sp.interpolate.CubicSpline(x_nodes, [pred.central_minus_sigma for pred in self.preds])
@@ -312,7 +347,7 @@ class PlotHT:
     legend_label = rf"$H^{self.target}_{self.type} \pm \sigma$"
     legend_name = [legend_label, "knots"]
     fig, ax = plt.subplots(figsize=(12.5, 8))
-    knots = ax.plot(x_abmp, [pred.central for pred in self.preds], 'o', label='data')
+    knots = ax.plot(self.x_knots, [pred.central for pred in self.preds], 'o', label='data')
     pl = ax.plot(xv, self.HT(xv), ls = "-", lw = 1, color = self.color)
     pl_lg= ax.fill(np.NaN, np.NaN, color = self.color, alpha = 0.3) # Necessary for fancy legend
     legends.append((pl[0], pl_lg[0]))
@@ -345,7 +380,9 @@ if __name__ == "__main__":
         print("You must specify the target directory")
         raise SystemExit(2)
     
-    fitnames = ["240716-02-ABMP-R",]
+    fitnames = [
+       "240805-03-ABMP",
+    ]
     
     # Check if the target folder already exists
     for fitname in fitnames:
@@ -358,10 +395,10 @@ if __name__ == "__main__":
       preds_dict = fit_posteriors.create_posterior_dict()
 
       
-      proton_H2 = PlotHT(preds_dict['proton']['H2'], x_abmp, 'red', "2", 'p', fitname)
-      proton_HL = PlotHT(preds_dict['proton']['HL'], x_abmp, 'green', "L", 'p', fitname)
-      deuteron_H2 = PlotHT(preds_dict['deuteron']['H2'], x_abmp, 'blue', "2", 'd', fitname)
-      deuteron_HL = PlotHT(preds_dict['deuteron']['HL'], x_abmp, 'purple', "L", 'd', fitname)
+      proton_H2 = PlotHT(preds_dict['proton']['H2'], fit_posteriors.x_knots, 'red', "2", 'p', fitname)
+      proton_HL = PlotHT(preds_dict['proton']['HL'], fit_posteriors.x_knots, 'green', "L", 'p', fitname)
+      deuteron_H2 = PlotHT(preds_dict['deuteron']['H2'], fit_posteriors.x_knots, 'blue', "2", 'd', fitname)
+      deuteron_HL = PlotHT(preds_dict['deuteron']['HL'], fit_posteriors.x_knots, 'purple', "L", 'd', fitname)
 
       proton_H2.plot_wrapper(save=True)
       proton_HL.plot_wrapper(save=True)
