@@ -14,30 +14,26 @@ import ipdb
 from validphys.theorycovariance.construction import extract_target, compute_ratio_delta, compute_ht_parametrisation
 
 # Yaml loaders and dumpers
+from ruamel import yaml
 from ruamel.yaml.main import round_trip_dump as yaml_dump
 
 
 # ABMP parametrisation
 x_abmp = [0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1]
 
-
 POSTERIOR_FOLDER = 'posteriors'
 
-pd.options.mode.chained_assignment = None
-
+# Decorators
+# ----------------
 def store_dict(name='result.yml'):
    def store_dict_decorator(func):
       @functools.wraps(func)
       def wrapper(*args, **kwargs):
 
-        if not args[0].save:
-          return
-
         dict_result = func(*args, **kwargs)
-        for key in dict_result.keys():
-           for key2 in dict_result[key].keys():
-              for pred in dict_result[key][key2]:
-                 pred = pred.string_rep()
+        if not args[0].save:
+          return dict_result
+
 
         if args[0].save_dir is None: 
             dir = POSTERIOR_FOLDER + '/' +  args[0].fitname
@@ -48,12 +44,35 @@ def store_dict(name='result.yml'):
         if not target_dir.is_dir():
           target_dir.mkdir(parents=True, exist_ok=True)
 
+
         with open(dir + '/' + name, 'w') as saved_dict:
-           yaml_dump(dict_result, saved_dict)
+           yaml.dump(dict_result, saved_dict)
+
+        return func(*args, **kwargs)
+
       return wrapper
    return store_dict_decorator
 
 
+def add_yaml_representer(cls):
+    """Add the class to yaml representer"""
+    @functools.wraps(cls)
+    def wrapper_add_yaml_representer(*args, **kwargs):
+        def representer(dumper,data):
+          serialized_data = str(data)
+          return dumper.represent_scalar('', serialized_data)
+        
+        yaml.add_representer(cls,representer)
+        wrapper_add_yaml_representer.instance = cls(*args, **kwargs)
+
+        return cls(*args, **kwargs)
+    return wrapper_add_yaml_representer
+       
+
+
+pd.options.mode.chained_assignment = None
+
+@add_yaml_representer
 class Prediction:
   def __init__(self, central, sigma):
     self.central = central
@@ -62,13 +81,14 @@ class Prediction:
     self.central_minus_sigma = central - sigma
 
   def string_rep(self):
-      return f"{self.central:.5f} ± {self.sigma:.5f} \n"
+      return f"{self.central:.5f} +- {self.sigma:.5f}"
 
   def __str__(self) -> str:
-    return self.string_rep
+    return self.string_rep()
 
 
 class Posterior:
+
   def __init__(self, fitname, save = True, save_dir = None):
     
     self.thcovmat_dict = API.fit(fit=fitname).as_input()["theorycovmatconfig"]
@@ -119,8 +139,8 @@ class Posterior:
     delta_T_tilde = -S_hat @ invcov @ (mean_prediction - dat_central)
     P_tilde = S_hat @ invcov @ X @ invcov @ S_hat.T + (S_tilde - S_hat @ invcov @ S_hat.T)
     posteriors = central_ht_coeffs + delta_T_tilde
-    posteriors_sigma = np.sqrt(P_tilde)
-    return posteriors, posteriors_sigma
+    #posteriors_sigma = np.sqrt(P_tilde)
+    return posteriors, P_tilde
 
   def compute_dat_central(self, preds):
     pseudodata = API.read_pdf_pseudodata(**self.common_dict)
@@ -199,6 +219,7 @@ class Posterior:
     # Ensure that S anc C are ordered in the same way (in practice they already are)
     C = self.collect_exp_covmat()
     S = S.reindex(C.index).T.reindex(C.index)
+    self.check_against_stored_covmat(S)
     return S
 
   def compute_delta_preds(self):
@@ -292,11 +313,20 @@ class Posterior:
         delta_pred.append(preds_input[f"d(0,{i+1}+)"])
     return delta_pred
   
-  #@store_dict()
+  @store_dict()
   def create_posterior_dict(self):
-    posteriors, posteriors_sigma = self.compute_posteriors_and_unc()
-    predictions_list = [Prediction(central, sigma) for central, sigma in zip(posteriors, posteriors_sigma.diagonal())]
-    preds_dict = defaultdict(list)
+    posteriors, P_tilde = self.compute_posteriors_and_unc()
+
+    def set_zero(value):
+      if np.abs(value) < 1e-10:
+        return 0
+      else:
+        return value
+      
+    diagonal = [ np.sqrt(set_zero(diag)) for diag in P_tilde.diagonal()]
+
+    predictions_list = [Prediction(central, sigma) for central, sigma in zip(posteriors, diagonal)]
+    preds_dict = {}
     preds_dict['proton'] = {"H2": predictions_list[0:self.lenH2], 
                             "HL": predictions_list[self.lenH2:self.lenHL + self.lenH2]}
     preds_dict['deuteron'] = {"H2": predictions_list[self.lenHL + self.lenH2 : self.lenHL + 2*self.lenH2], 
@@ -335,6 +365,7 @@ class Posterior:
       return np.allclose(stored_covmat, S)
 
 
+pd.options.mode.chained_assignment = None
 
 class PlotHT:
   def __init__(self, preds, x_nodes, color, type, target, fitname):
@@ -369,7 +400,7 @@ class PlotHT:
     if save:
       save_dir = f"./figs/{self.fitname}"
       self.make_dir(save_dir)
-      plt.savefig(save_dir + "/" + f"H_{self.type}_{self.target}.pdf")
+      plt.savefig(save_dir + "/" + f"{self.fitname}-H_{self.type}_{self.target}.pdf")
 
   def make_dir(self, path):
     target_dir = Path(path)
@@ -388,7 +419,8 @@ if __name__ == "__main__":
         raise SystemExit(2)
     
     fitnames = [
-       "240805-03-ABMP",
+       "240819-01-10-01-mc",
+       "240819-02-10-01-mc"
     ]
     
     # Check if the target folder already exists
