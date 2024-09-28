@@ -379,33 +379,29 @@ class PlotHT:
     self.HT_plus = sp.interpolate.CubicSpline(x_nodes, [pred.central_plus_sigma for pred in self.preds])
     self.HT_minus = sp.interpolate.CubicSpline(x_nodes, [pred.central_minus_sigma for pred in self.preds])
 
-  def plot_wrapper(self, save=False):
+  def plot_wrapper(self, ax):
     xv = np.logspace(-5, -0.0001, 100)
     legends = []
     legend_label = rf"$H^{self.target}_{self.type} \pm \sigma$"
     legend_name = [legend_label, "knots"]
-    fig, ax = plt.subplots(figsize=(12.5, 8))
     knots = ax.plot(self.x_knots, [pred.central for pred in self.preds], 'o', label='data')
     pl = ax.plot(xv, self.HT(xv), ls = "-", lw = 1, color = self.color)
+
     pl_lg= ax.fill(np.NaN, np.NaN, color = self.color, alpha = 0.3) # Necessary for fancy legend
     legends.append((pl[0], pl_lg[0]))
     legends.append(knots[0])
-    ax.fill_between(xv, self.HT_plus(xv), self.HT_minus(xv), color = self.color, alpha = 0.3)
+    if self.show_uncertainty:
+      ax.fill_between(xv, self.HT_plus(xv), self.HT_minus(xv), color = self.color, alpha = 0.3)
     ax.set_xscale("log")
     ax.set_xlabel(f'$x$')
     ax.set_ylabel(rf"$H^{self.target}_{self.type}$", fontsize = 20)
-    ax.set_title(rf"$H^{self.target}_{self.type}$", x = 0.15, y=0.85, fontsize=30)
-    fig.legend(legends, legend_name, loc=[0.1,0.15], fontsize=15)
+    ax.set_title(rf"$H^{self.target}_{self.type}$", x = 0.15, y=0.85, fontsize=20)
+    ax.legend(legends, legend_name, loc=[0.1,0.07], fontsize=10)
 
-    if save:
-      save_dir = f"./figs/{self.fitname}"
-      self.make_dir(save_dir)
-      plt.savefig(save_dir + "/" + f"{self.fitname}-H_{self.type}_{self.target}.pdf")
-
-  def make_dir(self, path):
-    target_dir = Path(path)
-    if not target_dir.is_dir():
-        target_dir.mkdir(parents=True, exist_ok=True)
+def make_dir(self, path):
+  target_dir = Path(path)
+  if not target_dir.is_dir():
+      target_dir.mkdir(parents=True, exist_ok=True)
 
 
 
@@ -439,8 +435,13 @@ if __name__ == "__main__":
       deuteron_H2 = PlotHT(preds_dict['deuteron']['H2'], fit_posteriors.x_knots, 'blue', "2", 'd', fitname)
       deuteron_HL = PlotHT(preds_dict['deuteron']['HL'], fit_posteriors.x_knots, 'purple', "L", 'd', fitname)
 
-      proton_H2.plot_wrapper(save=True)
-      proton_HL.plot_wrapper(save=True)
-      deuteron_H2.plot_wrapper(save=True)
-      deuteron_HL.plot_wrapper(save=True)
+      fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(12.5, 8))
+      proton_H2.plot_wrapper(axs[0][0])
+      proton_HL.plot_wrapper(axs[0][1])
+      deuteron_H2.plot_wrapper(axs[1][0])
+      deuteron_HL.plot_wrapper(axs[1][1])
+
+      save_dir = f"./figs/{fitname}"
+      make_dir(save_dir)
+      plt.savefig(save_dir + "/plot.pdf")
 
