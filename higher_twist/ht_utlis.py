@@ -9,23 +9,6 @@ import matplotlib.pyplot as plt
 PATH_DIR = "./"
 
 
-def compute_ht_parametrisation(
-    index: int, nodes: list, x: list, Q2: list, h_prior: list, reverse: bool = False
-):
-    if not reverse:
-        shifted_H_list = [0 for k in range(len(nodes))]
-        shifted_H_list[index] = h_prior[index]
-    else:
-        shifted_H_list = h_prior.copy()
-        shifted_H_list[index] = 0
-
-    H = scint.CubicSpline(nodes, shifted_H_list)
-    H = np.vectorize(H)
-
-    PC = H(x) / Q2
-    return PC
-
-
 class TCM:
 
     def __init__(
