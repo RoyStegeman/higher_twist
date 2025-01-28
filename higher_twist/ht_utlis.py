@@ -143,15 +143,15 @@ class HTset:
         if drop_last_node:
             self.central_nodes = (
                 posteriors.groupby(level=0, sort=False)
-                .apply(lambda x: x.iloc[:-1])
+                .apply(lambda x: x.iloc[:-1] if x.name != 'Hj' else x)
                 .reset_index(level=0, drop=True)
             )
             self.covmat = (
                 covmat.groupby(level=0, sort=False)
-                .apply(lambda x: x.iloc[:-1])
+                .apply(lambda x: x.iloc[:-1] if x.name != 'Hj' else x)
                 .reset_index(level=0, drop=True)
                 .T.groupby(level=0, sort=False)
-                .apply(lambda x: x.iloc[:-1])
+                .apply(lambda x: x.iloc[:-1] if x.name != 'Hj' else x)
                 .reset_index(level=0, drop=True)
             )
             self.index = self.central_nodes.index
@@ -189,11 +189,17 @@ class HTset:
         for name, df in fluctuated_nodes.groupby(level="HT"):
             aux = []
             for k in range(number_of_replicas):
-                aux.append(
-                    scint.CubicSpline(
-                        self.x_nodes[name], np.concatenate([df.iloc[:, 1 + k].to_numpy(), [0]])
-                    )
-                )
+                y_array = np.concatenate([df.iloc[:, 1 + k].to_numpy(), [0]]) if name != 'Hj' else df.iloc[:, 1 + k].to_numpy()
+                try:
+                  aux.append(
+                      scint.CubicSpline(
+                          self.x_nodes[name], y_array
+                      )
+                  )
+                except ValueError:
+                    print(self.x_nodes[name].shape)
+                    print(y_array)
+                    raise ValueError
             pseudo_ht_func[name] = aux
         return pseudo_ht_func
 
